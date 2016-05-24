@@ -1,6 +1,7 @@
 package jp.ne.sakura.uhideyuki.daat00;
 
 import java.util.Stack;
+import java.lang.Error;
 
 abstract class Cont {}
 
@@ -30,9 +31,9 @@ class DaatEvalApply {
     }
 
     public Boolean runStep(){
-	if        (code instanceof LetExpr){
+	if (code instanceof LetExpr){
 	    evalLet();
-	} else if (code instanceof CaseExpr) {
+	} else if (code instanceof CaseExpr){
 	    evalCase();
 	}
 
@@ -102,7 +103,50 @@ class DaatEvalApply {
 	return false;
     }
 
+    private Boolean isLiteral(Expr e){
+	Boolean r = ((e instanceof AtomExpr) &&
+		     (((AtomExpr)e).a instanceof Literal));
+	return r;
+    }
+
+    private Boolean isValue(Expr e){
+	if ((e instanceof AtomExpr) && (((AtomExpr)e).a instanceof Var)){
+	    Var v = (Var) ((AtomExpr)e).a;
+	    Boolean r = ((v.obj instanceof FunObj) ||
+			 (v.obj instanceof PapObj) ||
+			 (v.obj instanceof ConObj));
+	    return r;
+	}
+	return false;
+    }
+
+    private Boolean isLitOrValue(Expr e){
+	Boolean r = isLiteral(e) || isValue(e);
+	return r;
+    }
+
+    private DefaultAlt getDefaultAlt(Alt[] alts){
+	for (int i = 0; i < alts.length; i++){
+	    Alt alt = alts[i];
+	    if (alt instanceof DefaultAlt){
+		return (DefaultAlt) alt;
+	    }
+	}
+	return null;
+    }
+    
     private Boolean CaseAny(){
-	return false; // dummy
+	CaseExpr e = (CaseExpr) code;
+	Expr scrut = e.scrut;
+	Alt[] alts = e.alts;
+
+	if (isLitOrValue(scrut)){
+	    DefaultAlt dalt = getDefaultAlt(alts);
+	    Atom[] a = new Atom[1];
+	    a[0] = ((AtomExpr) scrut).a;
+	    code = dalt.lambda.call(a);
+	    return true;
+	}
+	return false;
     }
 }
