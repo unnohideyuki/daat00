@@ -1,6 +1,9 @@
 package jp.ne.sakura.uhideyuki.daat00;
 
-class Cotr { public String ident; }
+class Cotr {
+    public String ident;
+    public Boolean equald(Cotr c){ return ident.equals(c.ident); }
+}
 
 abstract class Atom {}
 

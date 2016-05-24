@@ -64,8 +64,42 @@ class DaatEvalApply {
 	code = e.scrut;
     }
 
+    private Boolean isConObj(Expr e){
+	Boolean r = ((e instanceof AtomExpr) &&
+		     (((AtomExpr)e).a instanceof Var) &&
+		     (((Var)((AtomExpr)e).a).obj instanceof ConObj));
+	return r;
+    }
+
     private Boolean CaseCon(){
-	return false; // dummy
+	CaseExpr e = (CaseExpr) code;
+	Expr scrut = e.scrut;
+	Alt[] alts = e.alts;
+
+	if (isConObj(scrut)){
+	    ConObj cobj = (ConObj) ((Var)((AtomExpr)scrut).a).obj;
+	    Cotr cotr = cobj.cotr;
+
+	    CotrAlt calt = null;
+	    for (int i = 0; i < alts.length; i++){
+		Alt alt = alts[i];
+		if (alt instanceof CotrAlt){
+		    CotrAlt t = (CotrAlt) alt;
+		    if (cotr.equals(t.cotr)){
+			calt = t;
+			break;
+		    }
+		}
+	    }
+
+	    if (calt != null){
+		Atom[] args = cobj.args;
+		code = calt.lambda.call(args);
+		return true;
+	    }
+	}
+
+	return false;
     }
 
     private Boolean CaseAny(){
