@@ -7,7 +7,10 @@ class Cotr {
 
 abstract class Atom {}
 
-class Var extends Atom { public HeapObj obj; }
+class Var extends Atom { 
+    public HeapObj obj; 
+    public Var(HeapObj x){ obj = x; }
+}
 
 abstract class Literal extends Atom {}
 
@@ -15,12 +18,58 @@ class LitInt extends Literal { public int value; }
 
 class LitFloat extends Literal { public Double value; }
 
-abstract class Expr {}
+abstract class Expr {
+    public Boolean isVar(){
+	Boolean r = (this instanceof AtomExpr) && 
+	    (((AtomExpr)this).a instanceof Var);
+	return r;
+    }
+
+    public Boolean isLiteral(){
+	Boolean r = ((this instanceof AtomExpr) &&
+		     (((AtomExpr)this).a instanceof Literal));
+	return r;
+    }
+
+    public Boolean isValue(){
+	if (this.isVar()){
+	    HeapObj obj = ((Var)((AtomExpr)this).a).obj;
+	    Boolean r = ((obj instanceof FunObj) ||
+			 (obj instanceof PapObj) ||
+			 (obj instanceof ConObj));
+	    return r;
+	}
+	return false;
+    }
+
+    public Boolean isLitOrValue(){
+	return this.isLiteral() || this.isValue();
+    }
+
+    public Boolean isThunk(){
+	Boolean r = this.isVar() && 
+	    ((Var)((AtomExpr)this).a).obj instanceof Thunk;
+	return r;
+    }
+
+    public Boolean isConObj(){
+	Boolean r = ((this instanceof AtomExpr) &&
+		     (((AtomExpr)this).a instanceof Var) &&
+		     (((Var)((AtomExpr)this).a).obj instanceof ConObj));
+	return r;
+    }
+
+    public Boolean isKnownCall(){
+	Boolean r = ((this instanceof FunAppExpr) &&
+		     (((FunAppExpr)this).arity > 0));
+	return r;
+    }
+}
 
 class AtomExpr extends Expr { public Atom a; }
 
 class FunAppExpr extends Expr { 
-    public Var f;
+    public Expr f;
     public Atom[] args;
     public int arity;
 }
@@ -54,6 +103,7 @@ class DefaultAlt extends Alt {
 class CaseExpr extends Expr {
     public Expr scrut;
     public Alt[] alts;
+    public CaseExpr(Expr e, Alt[] as){ scrut=e; alts=as; }
 }
 
 abstract class HeapObj {}
@@ -75,6 +125,10 @@ class ConObj extends HeapObj {
 
 class Thunk extends HeapObj {
     public Expr e;
+    public Thunk(Expr x){ e = x; }
 }
 
 class BlackHole extends HeapObj {}
+
+
+

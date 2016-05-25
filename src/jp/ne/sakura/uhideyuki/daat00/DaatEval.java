@@ -7,10 +7,12 @@ abstract class Cont {}
 
 class CaseCont extends Cont {
     public Alt[] alts;
+    public CaseCont(Alt[] as){ alts = as; }
 }
 
 class UpdCont extends Cont {
-    public Var x;
+    public Expr x;
+    public UpdCont(Expr t){ assert t.isVar(); x = t; }
 }
 
 class CallCont extends Cont {
@@ -35,8 +37,15 @@ class DaatEvalApply {
 	    evalLet();
 	} else if (code instanceof CaseExpr){
 	    evalCase();
+	} else if (code.isLitOrValue() && (s.peek() instanceof CaseCont)){
+	    evalRet();
+	} else if (code.isThunk()){
+	    evalThunk();
+	} else if (code.isValue() && (s.peek() instanceof UpdCont)){
+	    evalUpdate();
+	} else if (code.isKnownCall()){
+	    evalKnownCall();
 	}
-
 	return false;
     }
 
@@ -45,10 +54,8 @@ class DaatEvalApply {
 	Var[] args = new Var[e.es.length];
 
 	for (int i = 0; i < e.es.length; i++){
-	    Thunk t = new Thunk();
-	    t.e = e.es[i];
-	    args[i] = new Var();
-	    args[i].obj = t;
+	    Thunk t = new Thunk(e.es[i]);
+	    args[i] = new Var(t);
 	}
 
 	code = e.lambda.call(args);
@@ -59,17 +66,9 @@ class DaatEvalApply {
 	    return;
 	}
 	CaseExpr e = (CaseExpr) code;
-	CaseCont c = new CaseCont();
-	c.alts = e.alts;
+	CaseCont c = new CaseCont(e.alts);
 	s.push(c);
 	code = e.scrut;
-    }
-
-    private Boolean isConObj(Expr e){
-	Boolean r = ((e instanceof AtomExpr) &&
-		     (((AtomExpr)e).a instanceof Var) &&
-		     (((Var)((AtomExpr)e).a).obj instanceof ConObj));
-	return r;
     }
 
     private Boolean CaseCon(){
@@ -77,11 +76,11 @@ class DaatEvalApply {
 	Expr scrut = e.scrut;
 	Alt[] alts = e.alts;
 
-	if (isConObj(scrut)){
+	if (scrut.isConObj()){
 	    ConObj cobj = (ConObj) ((Var)((AtomExpr)scrut).a).obj;
 	    Cotr cotr = cobj.cotr;
-
 	    CotrAlt calt = null;
+
 	    for (int i = 0; i < alts.length; i++){
 		Alt alt = alts[i];
 		if (alt instanceof CotrAlt){
@@ -103,28 +102,6 @@ class DaatEvalApply {
 	return false;
     }
 
-    private Boolean isLiteral(Expr e){
-	Boolean r = ((e instanceof AtomExpr) &&
-		     (((AtomExpr)e).a instanceof Literal));
-	return r;
-    }
-
-    private Boolean isValue(Expr e){
-	if ((e instanceof AtomExpr) && (((AtomExpr)e).a instanceof Var)){
-	    Var v = (Var) ((AtomExpr)e).a;
-	    Boolean r = ((v.obj instanceof FunObj) ||
-			 (v.obj instanceof PapObj) ||
-			 (v.obj instanceof ConObj));
-	    return r;
-	}
-	return false;
-    }
-
-    private Boolean isLitOrValue(Expr e){
-	Boolean r = isLiteral(e) || isValue(e);
-	return r;
-    }
-
     private DefaultAlt getDefaultAlt(Alt[] alts){
 	for (int i = 0; i < alts.length; i++){
 	    Alt alt = alts[i];
@@ -132,6 +109,7 @@ class DaatEvalApply {
 		return (DefaultAlt) alt;
 	    }
 	}
+	assert true : "Default Alt not found.";
 	return null;
     }
     
@@ -140,7 +118,7 @@ class DaatEvalApply {
 	Expr scrut = e.scrut;
 	Alt[] alts = e.alts;
 
-	if (isLitOrValue(scrut)){
+	if (scrut.isLitOrValue()){
 	    DefaultAlt dalt = getDefaultAlt(alts);
 	    Atom[] a = new Atom[1];
 	    a[0] = ((AtomExpr) scrut).a;
@@ -148,5 +126,42 @@ class DaatEvalApply {
 	    return true;
 	}
 	return false;
+    }
+
+    private void evalRet(){
+	CaseCont cont = (CaseCont) s.pop();
+	CaseExpr e = new CaseExpr(code, cont.alts);
+	code = e;
+    }
+
+    private void evalThunk(){
+	UpdCont upd = new UpdCont(code);
+	Thunk t = (Thunk) ((Var)((AtomExpr)code).a).obj;
+	code = t.e;
+	s.push(upd);
+    }
+
+    private void evalUpdate(){
+	UpdCont upd = (UpdCont) s.pop();
+	Expr x = upd.x;
+	assert x.isThunk();
+	Var v = (Var)((AtomExpr)x).a;
+	v.obj = ((Var)((AtomExpr)code).a).obj;
+	assert x.isValue();
+    }
+
+    private void evalKnownCall(){
+	FunAppExpr e = (FunAppExpr) code;
+	assert e.arity == e.args.length;
+
+	Expr f = e.f;
+	assert f.isValue();
+	HeapObj obj = ((Var)((AtomExpr)f).a).obj;
+
+	assert obj instanceof FunObj;
+	FunObj fobj = (FunObj) obj;
+	assert fobj.arity == e.arity;
+
+	code = fobj.lambda.call(e.args);
     }
 }
