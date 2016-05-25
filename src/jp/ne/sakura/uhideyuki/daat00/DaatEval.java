@@ -1,7 +1,9 @@
+/** BRT -- Bunny RunTime (or "Be Right There).
+ */
 package jp.ne.sakura.uhideyuki.daat00;
 
 import java.util.Stack;
-import java.lang.Error;
+import java.util.Arrays;
 
 abstract class Cont {}
 
@@ -16,7 +18,8 @@ class UpdCont extends Cont {
 }
 
 class CallCont extends Cont {
-    public Var[] args;
+    public Atom[] args;
+    public CallCont(Atom[] as){ args = as; }
 }
 
 class DaatEvalApply {
@@ -36,7 +39,7 @@ class DaatEvalApply {
 	if (code instanceof LetExpr){
 	    evalLet();
 	} else if (code instanceof CaseExpr){
-	    evalCase();
+	    evalCase(); // CASECON, CASEANY or CASE
 	} else if (code.isLitOrValue() && (s.peek() instanceof CaseCont)){
 	    evalRet();
 	} else if (code.isThunk()){
@@ -45,8 +48,25 @@ class DaatEvalApply {
 	    evalUpdate();
 	} else if (code.isKnownCall()){
 	    evalKnownCall();
+	} else if (code instanceof PrimOpExpr){
+	    evalPrimOp();
+	} else if (code instanceof FunAppExpr){
+	    Expr f = ((FunAppExpr)code).f;
+	    if (f.isFunObj()){
+		evalFun(); // EXACT, CALLK or PAP2
+	    } else if (f.isThunk()){	
+		evalTCall();
+	    } else {
+		assert f.isPapObj();
+		evalPCall();
+	    }
+	} else if (!s.empty() && s.peek() instanceof CallCont){
+	    evalRetFun();
+	} else {
+	    assert code.isValue() && s.empty();
+	    return false;
 	}
-	return false;
+	return true;
     }
 
     private void evalLet(){
@@ -163,5 +183,58 @@ class DaatEvalApply {
 	assert fobj.arity == e.arity;
 
 	code = fobj.lambda.call(e.args);
+    }
+
+    private void evalPrimOp(){
+	PrimOpExpr e = (PrimOpExpr) code;
+	assert e.lambda.arity == e.args.length;
+	code = e.lambda.call(e.args);
+    }
+
+    private void evalFun(){
+	FunAppExpr e = (FunAppExpr) code;
+	FunObj fobj = (FunObj) e.f.getObj();
+
+	if (e.args.length == fobj.arity){ // EXACT
+	    code = fobj.lambda.call(e.args);
+	} else if (e.args.length > fobj.arity){ // CALLK
+	    Atom[] args1 = Arrays.copyOfRange(e.args, 0, fobj.arity);
+	    code = fobj.lambda.call(args1);
+
+	    Atom[] args2 = 
+		Arrays.copyOfRange(e.args, fobj.arity, e.args.length);
+	    s.push(new CallCont(args2));
+	} else { // PAP2
+	    PapObj pap = new PapObj(e.f, e.args);
+	    code = new AtomExpr(new Var(pap));
+	}
+    }
+
+    private void evalTCall(){
+	FunAppExpr e = (FunAppExpr) code;
+	code = e.f;
+	s.push(new CallCont(e.args));
+    }
+
+    private Atom[] catArgs(Atom[] a1, Atom[] a2){
+	Atom[] r = new Atom[a1.length + a2.length];
+	System.arraycopy(a1, 0, r, 0, a1.length);
+	System.arraycopy(a2, 0, r, a1.length, a2.length);
+	return r;
+    }
+
+    private void evalPCall(){
+	FunAppExpr e = (FunAppExpr) code;
+	PapObj pap = (PapObj) e.f.getObj();
+	Expr g = pap.f;
+	Atom[] args2 = catArgs(pap.args, e.args);
+	code = new FunAppExpr(g, args2, -1);
+    }
+
+    private void evalRetFun(){
+	Expr f = code;
+	assert f.isFunObj() || f.isPapObj();
+	CallCont c = (CallCont) s.pop();
+	code = new FunAppExpr(f, c.args, -1);
     }
 }

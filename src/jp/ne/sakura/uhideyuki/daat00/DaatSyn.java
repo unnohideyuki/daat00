@@ -46,17 +46,25 @@ abstract class Expr {
 	return this.isLiteral() || this.isValue();
     }
 
+    public HeapObj getObj(){
+	assert this.isVar();
+	return ((Var)((AtomExpr)this).a).obj;
+    }
+
     public Boolean isThunk(){
-	Boolean r = this.isVar() && 
-	    ((Var)((AtomExpr)this).a).obj instanceof Thunk;
-	return r;
+	return isVar() && getObj() instanceof Thunk;
     }
 
     public Boolean isConObj(){
-	Boolean r = ((this instanceof AtomExpr) &&
-		     (((AtomExpr)this).a instanceof Var) &&
-		     (((Var)((AtomExpr)this).a).obj instanceof ConObj));
-	return r;
+	return isVar() && getObj() instanceof ConObj;
+    }
+
+    public Boolean isFunObj(){
+	return isVar() && getObj() instanceof FunObj;
+    }
+
+    public Boolean isPapObj(){
+	return isVar() && getObj() instanceof PapObj;
     }
 
     public Boolean isKnownCall(){
@@ -66,16 +74,20 @@ abstract class Expr {
     }
 }
 
-class AtomExpr extends Expr { public Atom a; }
+class AtomExpr extends Expr { 
+    public Atom a; 
+    public AtomExpr (Atom b){ a = b; }
+}
 
 class FunAppExpr extends Expr { 
     public Expr f;
     public Atom[] args;
     public int arity;
+    public FunAppExpr(Expr g, Atom[] as, int n){ f=g; args=as; arity=n; }
 }
 
 class PrimOpExpr extends Expr {
-    public String primId;
+    public LambdaForm lambda;
     public Atom[] args;
 }
 
@@ -114,8 +126,9 @@ class FunObj extends HeapObj {
 }
 
 class PapObj extends HeapObj {
-    public Var f;
+    public Expr f;
     public Atom[] args;
+    public PapObj(Expr g, Atom[] as){ f = g; args = as; }
 }
 
 class ConObj extends HeapObj {
