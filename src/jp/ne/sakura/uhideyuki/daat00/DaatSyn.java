@@ -3,6 +3,7 @@ package jp.ne.sakura.uhideyuki.daat00;
 class Cotr {
     public String ident;
     public Boolean equald(Cotr c){ return ident.equals(c.ident); }
+    public Cotr(String s){ ident = s; }
 }
 
 abstract class Atom {}
@@ -17,6 +18,11 @@ abstract class Literal extends Atom {}
 class LitInt extends Literal { public int value; }
 
 class LitFloat extends Literal { public Double value; }
+
+class LitChar extends Literal { 
+    public char value; 
+    public LitChar(char c){ value=c; }
+}
 
 abstract class Expr {
     public Boolean isVar(){
@@ -84,6 +90,15 @@ class FunAppExpr extends Expr {
     public Atom[] args;
     public int arity;
     public FunAppExpr(Expr g, Atom[] as, int n){ f=g; args=as; arity=n; }
+    public FunAppExpr(Expr g, Expr[] as, int n){
+	f=g;
+	args = new Atom[as.length];
+	for (int i = 0; i < as.length; i++){
+	    assert as[i] instanceof AtomExpr;
+	    args[i] = ((AtomExpr)as[i]).a;
+	}
+	arity=n;
+    }
 }
 
 class PrimOpExpr extends Expr {
@@ -92,7 +107,7 @@ class PrimOpExpr extends Expr {
 }
 
 interface LambdaForm {
-    public int arity = -1;
+    public int arity();
     public Expr call(Atom[] args);
 }
 
@@ -121,8 +136,9 @@ class CaseExpr extends Expr {
 abstract class HeapObj {}
 
 class FunObj extends HeapObj {
-    public int arity = -1;
+    public int arity;
     public LambdaForm lambda;
+    public FunObj(int a, LambdaForm lam){ arity=a; lambda=lam; }
 }
 
 class PapObj extends HeapObj {
@@ -134,6 +150,7 @@ class PapObj extends HeapObj {
 class ConObj extends HeapObj {
     public Cotr cotr;
     public Atom[] args;
+    public ConObj(Cotr c, Atom[] as){ cotr = c; args = as; }
 }
 
 class Thunk extends HeapObj {

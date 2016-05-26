@@ -40,11 +40,11 @@ class DaatEvalApply {
 	    evalLet();
 	} else if (code instanceof CaseExpr){
 	    evalCase(); // CASECON, CASEANY or CASE
-	} else if (code.isLitOrValue() && (s.peek() instanceof CaseCont)){
+	} else if (code.isLitOrValue() && !s.empty() && (s.peek() instanceof CaseCont)){
 	    evalRet();
 	} else if (code.isThunk()){
 	    evalThunk();
-	} else if (code.isValue() && (s.peek() instanceof UpdCont)){
+	} else if (code.isValue() && !s.empty() && (s.peek() instanceof UpdCont)){
 	    evalUpdate();
 	} else if (code.isKnownCall()){
 	    evalKnownCall();
@@ -187,7 +187,7 @@ class DaatEvalApply {
 
     private void evalPrimOp(){
 	PrimOpExpr e = (PrimOpExpr) code;
-	assert e.lambda.arity == e.args.length;
+	assert e.lambda.arity() == e.args.length;
 	code = e.lambda.call(e.args);
     }
 
