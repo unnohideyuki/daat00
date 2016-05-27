@@ -30,9 +30,10 @@ class DaatEvalApply {
 	s = new Stack<Cont>();
     }
 
-    public void eval(Expr e){
+    public Expr eval(Expr e){
 	code = e;
 	while (runStep()){}
+	return e;
     }
 
     public Boolean runStep(){
@@ -63,7 +64,7 @@ class DaatEvalApply {
 	} else if (!s.empty() && s.peek() instanceof CallCont){
 	    evalRetFun();
 	} else {
-	    assert code.isValue() && s.empty();
+	    assert (code.isValue() || code.isLiteral()) && s.empty();
 	    return false;
 	}
 	return true;
